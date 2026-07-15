@@ -5,26 +5,63 @@ from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain import hub
 from dotenv import load_dotenv
+from langchain_core.prompts import PromptTemplate
+import os
+from ddgs import DDGS
 
+
+os.environ['LANGCHAIN_PROJECT'] = "ReAct Agent"
 load_dotenv()
 
-search_tool = DuckDuckGoSearchRun()
+@tool
+def search_tool(query: str) -> str:
+    """Search the web using DuckDuckGo"""
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=5))
+    return str(results) if results else "No results found."
+
 
 @tool
 def get_weather_data(city: str) -> str:
-  """
-  This function fetches the current weather data for a given city
-  """
-  url = f'https://api.weatherstack.com/current?access_key=f07d9636974c4120025fadf60678771b&query={city}'
+     """Fetches the current weather data for a given city"""
+     api_key = os.environ["OPENWEATHER_API_KEY"]
+     url = f'https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric'
+     response = requests.get(url)
+     return str(response.json())
 
-  response = requests.get(url)
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1",
+    timeout=30,
+    max_retries=2,
+    temperature= 0
+)
 
-  return response.json()
-
-llm = ChatOpenAI()
 
 # Step 2: Pull the ReAct prompt from LangChain Hub
-prompt = hub.pull("hwchase17/react")  # pulls the standard ReAct agent prompt
+template = """Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
+
+prompt = PromptTemplate.from_template(template)
+# pulls the standard ReAct agent prompt
 
 # Step 3: Create the ReAct agent manually with the pulled prompt
 agent = create_react_agent(

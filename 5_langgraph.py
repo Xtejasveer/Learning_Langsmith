@@ -1,5 +1,5 @@
 # pip install -U langgraph langchain-openai pydantic python-dotenv langsmith
-
+import os 
 import operator
 from typing import TypedDict, Annotated, List
 
@@ -12,7 +12,14 @@ from langgraph.graph import StateGraph, START, END
 
 # ---------- Setup ----------
 load_dotenv()
-model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+model = ChatOpenAI(
+    model="gpt-4o-mini",
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1",
+    timeout=30,
+    max_retries=2,
+    temperature= 0
+)
 
 # ---------- Structured schema & model ----------
 class EvaluationSchema(BaseModel):
